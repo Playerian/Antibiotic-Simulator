@@ -1,204 +1,249 @@
-var board;
-var square = 8;
-var canvas = document.getElementById("board");
-var screen = canvas.getContext("2d");
-var turn = "blue";
-var log = $("#log");
-var starting = true;
-var turns = 1;
-var help = $("#help");
-var gameFinish = false;
-var blueColor = "purple";
-var redColor = "green";
-var direction = "up";
+var fieldSize;
+var antibiotics;
+var antiMin;
+var antiMax;
+var field;
+var $canvas = $("#canvas");
+var canvas = $canvas.get(0);
+var draw = canvas.getContext("2d");
+var pixelSize = 8;
+var color;
+var bacteriaC = "yellow";
+var mutantC = "red";
+var bacx;
+var bacy;
+var timer;
+var word = $("#word");
+var speed;
+var time = 0;
+var $time = $("#time");
+var mutateRate;
+var conjRate;
+
+//utility functions
+function randomInt(min, max){
+    return Math.floor(Math.random() * (max - min + 1) ) + min;
+}
+
+function rgb(r, g, b){
+    return ["rgb(",r,",",g,",",b,")"].join("");
+}
 
 function initialize(){
-    turn = "blue";
-    turns = 1;
-    gameFinish = false;
-    log.text("Player 1's Turn (Blue)");
-    help.text("Player 1 (Blue), please choose a point on your zone to start");
-    board = [];
-    board.length = square;
-    for (var i = 0;i < board.length; i ++){
-        board[i] = [];
-        board[i].length = square;
+    word.text("Press Start to start.");
+    clearInterval(timer);
+    getInputs();
+    //coloring
+    var RGB = Math.floor(255 / (antiMax + 1));
+    color = [];
+    for (var i = 0; i < antiMax + 1; i ++){
+        color.unshift(i * RGB);
     }
-    for (var i = 0;i < board.length; i ++){
-        for (var i2 = 0;i2 < board.length; i2 ++){
-            board[i][i2] = {attr:"empty", cannon:0, cannonDirection: "", x:i*50+25, y:i2*50+25, side:"none", color:"none", truex:i, truey:i2};
+    canvas.width = fieldSize * pixelSize;
+    canvas.height = fieldSize * pixelSize;
+    field = [];
+    field.length = fieldSize;
+    for (var i = 0; i < fieldSize; i ++){
+        field[i] = [];
+        field[i].length = fieldSize;
+    }
+    for (var i = 0; i < fieldSize; i ++){
+        for (var i2 = 0; i2 < fieldSize; i2 ++){
+            field[i][i2] = 0;
         }
     }
-    canvas.width = square * 50;
-    canvas.height = square * 50;
-    render();
-    renderButton();
-}
-initialize();
-
-function drawLine(){
-    //drawLine(color,start x, start y, end x, end y, go through x, go through y)
-    screen.lineWidth = 1;
-    screen.strokeStyle = "black";
-    if (arguments[0] === "red"){
-        screen.strokeStyle = redColor;
-    } else if (arguments[0] === "blue"){
-        screen.strokeStyle = blueColor;
+    for (var i = 0; i < antibiotics; i ++){
+        var x = randomInt(0,fieldSize - 1);
+        var y = randomInt(0,fieldSize - 1);
+        field[x][y] = randomInt(antiMin,antiMax);
     }
-    screen.beginPath();
-    if (arguments.length >= 5){
-        screen.moveTo(arguments[1],arguments[2]);
-    }
-    for (var i = 5; i < arguments.length - 1; i += 2){
-        if (arguments[i+1] !== undefined){
-            screen.lineTo(arguments[i],arguments[i+1]);
+    for (var i = 0; i < fieldSize; i ++){
+        for (var i2 = 0; i2 < fieldSize; i2 ++){
+            if (field[i][i2] > 0){
+                spread(i,i2);
+            }
         }
     }
-    screen.lineTo(arguments[3],arguments[4]);
-    screen.stroke();
+    bacSpawn();
+    renderField();
 }
 
-function fillColor(a,b,c,d,e){
-    //fillColor(start x, start y, end x, end y, color in string)
-    screen.beginPath();
-    screen.rect(a, b, c, d);
-    screen.fillStyle = e;
-    screen.fill();
-}
-
-function Circle(a,b,c,color){
-    //Circle(x,y,radius,color)
-    screen.beginPath();
-    screen.arc(a,b,c,0,2*Math.PI);
-    screen.strokeStyle = "black";
-    if (color === "red"){
-        screen.strokeStyle = redColor;
-    } else if (color === "blue"){
-        screen.strokeStyle = blueColor;
+function getInputs(){
+    fieldSize = parseInt($("#fieldSize").val());
+    if (fieldSize > 200){
+        fieldSize = 200;
     }
-    screen.stroke();
-}
-
-function Rectangle(x1,y1,x2,y2,color){
-    screen.strokeStyle = color;
-    screen.rect(x1,y1,Math.abs(x2 - x1),Math.abs(y2 - y1));
-    screen.stroke();
-}
-
-function Arc(x,y,r,sa,ea,color){
-    //Arc(x,y,radius,starting angle,ending angle,color)
-    //east 0 | south 0.5pi | west 1pi | north 1.5 pi 
-    //clockwise
-    screen.beginPath();
-    screen.strokeStyle = color;
-    screen.arc(x,y,r,sa,ea);
-    screen.stroke();
-}
-
-function isAdjacent(tile1,tile2){
-    if (Math.abs(tile1.x - tile2.x) <= 1 && tile1.y - tile2.y === 0){
-        return true;
+    antibiotics = parseInt($("#antibiotics").val());
+    antiMin = parseInt($("#effectMin").val());
+    antiMax = parseInt($("#effectMax").val());
+    if (antiMin > 15){
+        antiMin = 15;
     }
-    if (Math.abs(tile1.y - tile2.y) <= 1 && tile1.x - tile2.y === 0){
-        return true;
+    if (antiMax > 15){
+        antiMax = 15;
     }
-    return false;
+    if (antiMin > antiMax){
+        antiMax = [antiMin, antiMin = antiMax][0];
+    }
+    speed = parseFloat($("#speed").val());
+    pixelSize = parseFloat($("#pixel").val());
+    mutateRate = parseFloat($("#mutate").val());
+    conjRate = parseFloat($("#conj").val());
 }
 
-function getAdjacent(tile){
+function fillRect(x,y,width,height,color){
+    draw.fillStyle = color;
+    draw.fillRect(x,y,width,height);
+}
+
+function renderField(x,y){
+    var length = arguments.length;
+    //render whole
+    if (length === 0){
+        for (var i = 0; i < fieldSize; i ++){
+            for (var i2 = 0; i2 < fieldSize; i2 ++){
+                if (field[i][i2] > 0){
+                    var bg = color[field[i][i2]];
+                    fillRect(i * pixelSize, i2 * pixelSize, pixelSize, pixelSize, rgb(bg,bg,bg));
+                }
+            }
+        }
+    }
+    //partial render
+    if (length === 2){
+        //if normal
+        if (field[x][y] === -1){
+            fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize, bacteriaC);
+        //if mutant
+        } else if (field[x][y] === 100){
+            fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize, mutantC);
+        }
+    }
+}
+
+function spread(x,y){
+    var power = field[x][y];
+    if (power === 0){
+        return;
+    }
+    if (field[x - 1] !== undefined){
+        if (field[x - 1][y] < power){
+            field[x - 1][y] = power - 1;
+            spread(x - 1, y);
+        }
+    }
+    if (field[x + 1] !== undefined){
+        if (field[x + 1][y] < power){
+            field[x + 1][y] = power - 1;
+            spread(x + 1, y);
+        }
+    }
+    if (field[x][y + 1] !== undefined){
+        if (field[x][y + 1] < power){
+            field[x][y + 1] = power - 1;
+            spread(x, y + 1);
+        }
+    }
+    if (field[x][y - 1] !== undefined){
+        if (field[x][y - 1] < power){
+            field[x][y - 1] = power - 1;
+            spread(x, y - 1);
+        }
+    }
+}
+
+function spreadBac(){
+    //check all tiles adjacent to bacteria, change them to holder
+    for (var i = 0; i < fieldSize; i ++){
+        for (var i2 = 0; i2 < fieldSize; i2 ++){
+            if (field[i][i2] === -1){
+                if (field[i - 1] !== undefined){
+                    if (field[i - 1][i2] === 0){
+                        field[i - 1][i2] = -2;
+                    }
+                }
+                if (field[i + 1] !== undefined){
+                    if (field[i + 1][i2] === 0){
+                        field[i + 1][i2] = -2;
+                    }
+                }
+                if (field[i][i2 + 1] !== undefined){
+                    if (field[i][i2 + 1] === 0){
+                        field[i][i2 + 1] = -2;
+                    }
+                }
+                if (field[i][i2 - 1] !== undefined){
+                    if (field[i][i2 - 1] === 0){
+                        field[i][i2 - 1] = -2;
+                    }
+                }
+            }
+        }
+    }
+    
+    //change all tile beside mutant bacteria to mutant bacteria
+    for (var i = 0; i < fieldSize; i ++){
+        for (var i2 = 0; i2 < fieldSize; i2 ++){
+            if (field[i][i2] === 100){
+                var adjacent = getAdjacent(i, i2);
+                for (var num = 0; num < adjacent.length; num ++){
+                    if (field[adjacent[num][0]][adjacent[num][1]] >= 0 && field[adjacent[num][0]][adjacent[num][1]] < 100){
+                        field[adjacent[num][0]][adjacent[num][1]] = 101;
+                    }
+                }
+            }
+        }
+    }
+    
+    //change all holder into bacteria
+    for (var i = 0; i < fieldSize; i ++){
+        for (var i2 = 0; i2 < fieldSize; i2 ++){
+            if (field[i][i2] === -2){
+                field[i][i2] = -1;
+                renderField(i, i2);
+            } else if (field[i][i2] === 101){
+                field[i][i2] = 100;
+                renderField(i, i2);
+            }
+        }
+    }
+}
+
+function getAdjacent(x,y){
     var array = [];
-    var x = (tile.x - 25) / 50;
-    var y = (tile.y - 25) / 50;
     if (x - 1 >= 0){
-        array.push(board[x - 1][y]);
+        array.push([x - 1, y]);
     }
-    if (x + 1 < board.length){
-        array.push(board[x + 1][y]);
+    if (x + 1 < fieldSize){
+        array.push([x + 1, y]);
     }
     if (y - 1 >= 0){
-        array.push(board[x][y - 1]);
+        array.push([x, y - 1]);
     }
-    if (y + 1 < board.length){
-        array.push(board[x][y + 1]);
+    if (y + 1 < fieldSize){
+        array.push([x, y + 1]);
     }
     return array;
 }
 
-function render(){
-    screen.clearRect(0, 0, canvas.width, canvas.height);
-    //draw the sides
-    screen.globalAlpha=0.3;
-    fillColor(0,0,square*50,100,"blue");
-    fillColor(0,square*50-100,square*50,square*50,"red");
-    screen.globalAlpha=1;
-    //draw the lines
-    for (var i = 1; i < board.length; i += 1){
-        drawLine("black",0,i*50,board.length*50,i*50);
-        drawLine("black",i*50,0,i*50,board.length*50);
-    }
-    //draw the objects inside the board
-    for (var i = 0;i < board.length; i ++){
-        for (var i2 = 0;i2 < board.length; i2 ++){
-            var tile = board[i][i2];
-            
-            // draw a circle if border on it
-            if (tile.attr === "border"){
-                Circle(tile.x,tile.y,10,tile.side);
-            }
-            
-            // draw a rectangle if cannon is larger than 1
-            if (tile.cannon >= 1 && tile.attr !== "destroy"){
-                //check direction
-                if (tile.cannonDirection === "up"){
-                    Rectangle(tile.x-6, tile.y-18, tile.x+6, tile.y, tile.color);
-                } else if (tile.cannonDirection === "down"){
-                    Rectangle(tile.x-6, tile.y, tile.x+6, tile.y+18, tile.color);
-                } else if (tile.cannonDirection === "left"){
-                    Rectangle(tile.x-18, tile.y-6, tile.x, tile.y+6, tile.color);
-                } else if (tile.cannonDirection === "right"){
-                    Rectangle(tile.x, tile.y-6, tile.x+18, tile.y+6, tile.color);
-                }
-            }
-            
-            // draw an arc if cannon is 2
-            if (tile.cannon >= 2 && tile.attr !== "destroy"){
-                if (tile.cannonDirection === "up"){
-                    Arc(tile.x, tile.y, 22, 1.25*Math.PI, 1.75*Math.PI, tile.color);
-                } else if (tile.cannonDirection === "down"){
-                    Arc(tile.x, tile.y, 22, 0.25*Math.PI, 0.75*Math.PI, tile.color);
-                } else if (tile.cannonDirection === "left"){
-                    Arc(tile.x, tile.y, 22, 0.75*Math.PI, 1.25*Math.PI, tile.color);
-                } else if (tile.cannonDirection === "right"){
-                    Arc(tile.x, tile.y, 22, 1.75*Math.PI, 0.25*Math.PI, tile.color);
-                }
-            }
-            
-            //draw a cross if tile is destroyed
-            if (tile.attr === "destroy"){
-                drawLine("green",tile.x-25,tile.y-25,tile.x+25,tile.y+25);
-                drawLine("green",tile.x+25,tile.y-25,tile.x-25,tile.y+25);
-            }
-            
-            //check if this and adjacent tile is border if yes, draw line
-            if (tile.attr === "border"){
-                if (i - 1 >= 0){
-                    if (board[i - 1][i2].attr === "border" && board[i - 1][i2].side === tile.side){
-                        drawLine(tile.side,board[i][i2].x,board[i][i2].y,board[i - 1][i2].x,board[i - 1][i2].y);
-                    }
-                }
-                if (i + 1 < board.length){
-                    if (board[i + 1][i2].attr === "border" && board[i + 1][i2].side === tile.side){
-                        drawLine(tile.side,board[i][i2].x,board[i][i2].y,board[i + 1][i2].x,board[i + 1][i2].y);
-                    }
-                }
-                if (i2 - 1 >= 0){
-                    if (board[i][i2 - 1].attr === "border" && board[i][i2 - 1].side === tile.side){
-                        drawLine(tile.side,board[i][i2].x,board[i][i2].y,board[i][i2 - 1].x,board[i][i2 - 1].y);
-                    }
-                }
-                if (i2 + 1 < board.length){
-                    if (board[i][i2 + 1].attr === "border" && board[i][i2 + 1].side === tile.side){
-                        drawLine(tile.side,board[i][i2].x,board[i][i2].y,board[i][i2 + 1].x,board[i][i2 + 1].y);
+function checkMutate(){
+    for (var i = 0; i < fieldSize; i ++){
+        for (var i2 = 0; i2 < fieldSize; i2 ++){
+            if (field[i][i2] === -1){
+                //grab all adjacents
+                var adjacents = getAdjacent(i, i2);
+                //loop through adjacents
+                for (var num = 0; num < adjacents.length; num ++){
+                    //if adjacent is antibiotic
+                    if (field[adjacents[num][0]][adjacents[num][1]] > 0 &&field[adjacents[num][0]][adjacents[num][1]] < 100){
+                        //check chance
+                        var rate = mutateRate * 1000;
+                        var chance = 1000 * 1000;
+                        //if true, turn tile into mutant
+                        if (randomInt(0,chance) < rate){
+                            field[i][i2] = 100;
+                            renderField(i, i2);
+                        }
                     }
                 }
             }
@@ -206,212 +251,74 @@ function render(){
     }
 }
 
-function renderButton(){
-    $(".button").attr("class","button");
-    $("#"+direction).addClass("active");
+function conjugation(){
+    var times = 1;
+    if (conjRate < 1){
+        times = parseInt(1 / conjRate);
+    }
+    //repeating
+    for (var repeat = 0; repeat < times; repeat ++){
+        //check if turn fits
+        if (time % conjRate === 0 || conjRate < 1){
+            console.log(repeat);
+            //change all to 101 just to be recog.
+            for (var i = 0; i < fieldSize; i ++){
+                for (var i2 = 0; i2 < fieldSize; i2 ++){
+                    if (field[i][i2] === 100){
+                        var adjacent = getAdjacent(i, i2);
+                        for (var num = 0; num < adjacent.length; num ++){
+                            if (field[adjacent[num][0]][adjacent[num][1]] === -1){
+                                field[adjacent[num][0]][adjacent[num][1]] = 101;
+                            }
+                        }
+                    }
+                }
+            }
+            //change all 101 to 100 and render
+            for (var i = 0; i < fieldSize; i ++){
+                for (var i2 = 0; i2 < fieldSize; i2 ++){
+                    if (field[i][i2] === 101){
+                        field[i][i2] = 100;
+                        renderField(i, i2);
+                    }
+                }
+            }
+        }
+    }
 }
 
-function setDirection(arg){
-    direction = arg;
-    renderButton();
+function bacSpawn(){
+    bacx = randomInt(0, fieldSize - 1);
+    bacy = randomInt(0, fieldSize - 1);
+    var stack = 0;
+    while (field[bacx][bacy] !== 0){
+        bacx = randomInt(0, fieldSize - 1);
+        bacy = randomInt(0, fieldSize - 1);
+        stack ++;
+        if (stack > 500){
+            word.text("Stack overflow! Lessen the power of antibiotics!");
+            return;
+        }
+    }
+    field[bacx][bacy] = -1;
+    renderField(bacx, bacy);
+    timer = setInterval(function(){
+        spreadBac();
+        checkMutate();
+        conjugation();
+        time ++;
+        $time.text(time + " turns");
+    }, speed * 1000);
 }
 
-$(".button").click(function(){
-    setDirection($(this).attr("id"));
+//jquery
+$("#start").click(function(){
+    initialize();
 });
 
-$(document).keydown(function(key){
-    if (gameFinish === true && key.key.toLowerCase() === "r"){
-        initialize();
-    }
+$("#stop").click(function(){
+    clearInterval(timer);
 });
-
-$(document).click(function(evt){
-    // check for mouse click
-    var x = evt.pageX - $("#board").offset().left;
-    var y = evt.pageY - $("#board").offset().top;
-    console.log("X coords: " + x + ", Y coords: " + y);
-    // set tile to the tile that mouse clicked
-    if (Math.ceil(x/50) - 1 >= 0 && 
-        Math.ceil(x/50) - 1 < board.length && 
-        Math.ceil(y/50) - 1 >= 0 &&
-        Math.ceil(y/50) - 1 <= board.length && gameFinish === false){
-        //add stuffs inside here
-        //store the tile
-        var tile = board[Math.ceil(x/50) - 1][Math.ceil(y/50) - 1];
-        console.log(tile);
-        //add a point on to the empty space
-        //check if the tile is next to a tile you have
-        //get adjacent tiles
-        var adj = getAdjacent(tile);
-        //loop through all adjacent tiles
-        for (var i = 0; i < adj.length; i ++){
-            //check if adjacent tile is owned by the side that the turn is running, also check if tile belongs to none
-            if ((adj[i].side === turn && tile.side === "none" && adj[i].attr !== "destroy")
-                || turns <= 2){
-                //if first two turns, check if blue's turn
-                if ((turns <= 2 && ( (turn === "blue" && tile.truey <= 1) || (turn === "red" && tile.truey >= square - 2) ) ) || turns > 2){
-                    //render instruction
-                    //set tile to border
-                    tile.attr = "border";
-                    tile.side = turn;
-                    if (turn === "red"){
-                        tile.color = redColor;
-                    } else {
-                        tile.color = blueColor;
-                    }
-                    changeTurn(tile);
-                    break;
-                }
-            }
-            //check if adjecent tile is destroy and is owned by the side
-            if (adj[i].side === turn && tile.attr === "destroy"){
-                tile.attr = "empty";
-                tile.cannon = 0;
-                tile.side = "none";
-                changeTurn(tile);
-                break;
-            }
-        }
-        //set up a cannon
-        //if click on a tile that has a point on it own by the side
-        if (tile.side === turn && tile.attr === "border" && tile.cannon < 2){
-            //increase cannon count by 1 
-            tile.cannon ++;
-            //set cannon direction if it just got setted up
-            if  (tile.cannon === 1){
-                tile.cannonDirection = direction;
-            }
-            //if cannon count is 2, fire it
-            if (tile.cannon === 2){
-                //check firing direction
-                if (tile.cannonDirection === "up"){
-                    //check from bottom to top
-                    for (var i = tile.truey; i >= 0; i --){
-                        var checkTile = board[tile.truex][i];
-                        //if the tile that is checking has a different side and the tile is not destroy, destroy the tile
-                        if (checkTile.side !== tile.side && checkTile.side !== "none" && checkTile.attr !== "destroy"){
-                            checkTile.attr = "destroy";
-                            break;
-                        }
-                    }
-                } else if (tile.cannonDirection === "down"){
-                    //check from top to bottom
-                    for (var i = tile.truey; i < board.length; i ++){
-                        var checkTile = board[tile.truex][i];
-                        //if the tile that is checking has a different side and the tile is not destroy, destroy the tile
-                        if (checkTile.side !== tile.side && checkTile.side !== "none" && checkTile.attr !== "destroy"){
-                            checkTile.attr = "destroy";
-                            break;
-                        }
-                    }
-                } else if (tile.cannonDirection === "left"){
-                    //check from right to left
-                    for (var i = tile.truex; i >= 0; i --){
-                        var checkTile = board[i][tile.truey];
-                        //if the tile that is checking has a different side and the tile is not destroy, destroy the tile
-                        if (checkTile.side !== tile.side && checkTile.side !== "none" && checkTile.attr !== "destroy"){
-                            checkTile.attr = "destroy";
-                            break;
-                        }
-                    }
-                } else if (tile.cannonDirection === "right"){
-                    //check from right to left
-                    for (var i = tile.truex; i < board.length; i ++){
-                        var checkTile = board[i][tile.truey];
-                        //if the tile that is checking has a different side and the tile is not destroy, destroy the tile
-                        if (checkTile.side !== tile.side && checkTile.side !== "none" && checkTile.attr !== "destroy"){
-                            checkTile.attr = "destroy";
-                            break;
-                        }
-                    }
-                }
-            }
-            changeTurn(tile);
-        }
-    }
-    //render the canvas if after the second turn
-    if (turns >= 3){
-        render();
-    }
-    //render the instruction
-    if (turns === 1){
-        help.text("Player 1 (Blue), please choose a point on your zone to start");
-    } else if (turns === 2){
-        help.text("Player 2 (Red), please choose a point on your zone to start");
-    } else if (turns % 2 === 1){
-        help.text("Player 1 (Blue)'s turn to move!");
-    } else {
-        help.text("Player 2 (Red)'s turn to move!");
-    }
-    //check if a player wins
-    checkWin();
-});
-
-function changeTurn(tile){
-    //change turn
-    if (turn === "red"){
-        turn = "blue";
-        log.text("Player 1's Turn (Blue)");
-        setDirection("down");
-    } else {
-        turn = "red";
-        log.text("Player 2's Turn (Red)");
-        setDirection("up");
-    }
-    //add a turns
-    turns ++;
-}
-
-function checkWin(){
-    var win = false;
-    var side = "none";
-    var redZoneTile = 0;
-    var blueZoneTile = 0;
-    for (var i = 0; i < board.length; i ++){
-        for (var i2 = 0; i2 < board.length; i2 ++){
-            //get the tile
-            var tile = board[i][i2];
-            //check if a player make it to the other side
-            if ((tile.side === "red" && tile.truey <= 1) ||
-                (tile.side === "blue" && tile.truey >= square - 2)){
-                var win = true;
-                var side = tile.side;
-            }
-            //check if a tile in a zone is destroy
-            if (tile.attr === "destroy"){
-                if (tile.truey <= 1){
-                    blueZoneTile ++;
-                }
-                if (tile.truey >= square - 2){
-                    redZoneTile ++;
-                }
-            }
-        }
-    }
-    //check if make it to the other side
-    if (win === true){
-        Win(side);
-    }
-    //check if tile is more than 7
-    if (blueZoneTile >= 7){
-        Win("red");
-    }
-    if (redZoneTile >= 7){
-        Win("blue");
-    }
-}
-
-function Win(side){
-    render();
-    gameFinish = true;
-    log.text("Restart by pressing R");
-    help.text("The "+side+" side has won the game!");
-}
-
-
-
-
 
 
 
