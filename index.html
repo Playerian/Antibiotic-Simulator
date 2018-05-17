@@ -4,34 +4,51 @@
         <title>Last Stand</title>
     </head>
     <body>
-        <canvas id="board"></canvas>
-        <span id="instruction">
-            Game Rule: <br>
-            1. Each Player choose a starting point at their corresponding zones. Both Player can't see their opponent's point until both player has place their points.<br><br>
-            2. During each Player's turn, the Player can put a point onto an empty tile adjacent to a point that Player owns.<br><br>
-            3. Player can set up a cannon on a point that Player owns.<br><br>
-            4. Player can fire an already set up cannon, which destroy the first opponent tile that is in front of the cannon. Fired cannon can't be fire again.<br><br>
-            5. Player can clean up a destroyed tile adjecent to a point that player owns.<br><br>
-            Winning Condition:<br>
-            1. If one Player make a point onto the opponent's zone, that Player wins.<br><br>
-            2. If one Player can't move, that Player loses.<br><br>
+        <span id="input1">
+            <span>Field Size(max 200):</span>
+            <input id="fieldSize" size="1" maxlength="3" value="50">
         </span>
-        <div id="directions">
-            <p>Choose Cannon Direction</p>
-            <button id="up" class="button">Up</button>
-            <button id="down" class="button">Down</button>
-            <button id="left" class="button">Left</button>
-            <button id="right" class="button">Right</button>
-        </div>
-        <div id="log">Player 1's Turn (Blue)</div>
-        <h4>Instruction:</h4>
-        <div id="help">Player 1 (Blue), please choose a point on your zone to start</div>
+        <span id="input2">
+            <span># of antibiotics:</span>
+            <input id="antibiotics" size="1" maxlength="3" value="50">
+        </span>
+        <span id="input3">
+            <span>Power of antibiotics(min-max(max 15)):</span>
+            <input id="effectMin" size="1" maxlength="2" value="2">
+            <input id="effectMax" size="1" maxlength="2" value="4">
+        </span>
+        <span id="input4">
+            <span>Running Speed(second):</span>
+            <input id="speed" size="1" maxlength="5" value="0.25">
+        </span>
+        <span id="input5">
+            <span>Pixel Size:</span>
+            <input id="pixel" size="1" maxlength="2" value="8">
+        </span>
+        <span id="input6">
+            <span>Chance to Mutate(Out of 1000):</span>
+            <input id="mutate" size="1" maxlength="5" value="0.1">
+        </span>
+        <span id="input7">
+            <span>Conjugation Rate(Conjugate every x turn):</span>
+            <input id="conj" size="1" maxlength="5" value="3">
+        </span>
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
         <br>
-        <a href="https://docs.google.com/forms/d/1TBaVO9aSfyuiF-EHbYhOAd48kSUmUli4In0AhZAZSTs/edit#responses" target="_blank">Suggestion Box</a>
+        <br>
+        <canvas id="canvas" style="border:1px solid #000000;">
+        </canvas>
+        <h2 id="word">
+            Press Start to start.
+        </h2>
+        <p id="time">
+            0 turn
+        </p>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
         <link rel="stylesheet"
          type="text/css"
-         href="https://rawgit.com/Playerian/Last-Stand/master/styles.css" />
-        <script type="text/javascript" src="https://rawgit.com/Playerian/Last-Stand/master/script.js"></script>
+         href="https://rawgit.com/Playerian/Antibiotic-Simulator/master/styles.css" />
+        <script type="text/javascript" src="https://rawgit.com/Playerian/Antibiotic-Simulator/master/script.js"></script>
     </body>
 </html>
