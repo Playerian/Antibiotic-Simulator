@@ -1,4 +1,3 @@
 # Last-Stand
-A Game designed to be played.
+A Simulator
 # Link
-https://playerian.github.io/Last-Stand/
